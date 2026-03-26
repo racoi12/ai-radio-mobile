@@ -85,7 +85,6 @@ export default function ResetPasswordScreen() {
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Código</Text>
               <TextInput
-                style={styles.input}
                 value={code}
                 onChangeText={setCode}
                 placeholder="000000"
