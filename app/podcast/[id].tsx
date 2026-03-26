@@ -1,4 +1,3 @@
-import { use, useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -9,7 +8,7 @@ import {
   Alert,
 } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
-import { useRouter } from 'expo-router'
+import { useRouter, useLocalSearchParams } from 'expo-router'
 import * as api from '../../src/lib/api'
 import { useAudioPlayer } from '../../src/hooks/useAudioPlayer'
 import { PodcastScript, Segment } from '../../src/types'
@@ -43,15 +42,18 @@ function SegmentCard({
   )
 }
 
-export default function PodcastDetailScreen({ params }: { params: { id: string } }) {
-  const { id } = params
+export default function PodcastDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const { playFromUrl, isPlaying, currentPodcastId, playbackPosition, playbackDuration, isLoadingAudio } =
     useAudioPlayer()
 
+  const podcastId = Array.isArray(id) ? id[0] : id
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['podcast', id],
-    queryFn: () => api.getPodcast(id),
+    queryKey: ['podcast', podcastId],
+    queryFn: () => api.getPodcast(podcastId!),
+    enabled: !!podcastId,
   })
 
   const podcast = data?.podcast
@@ -59,13 +61,13 @@ export default function PodcastDetailScreen({ params }: { params: { id: string }
 
   function handlePlayAll() {
     if (!podcast?.audio_path && !podcast?.id) return
-    const url = api.getDownloadUrl(id)
-    playFromUrl(id, url)
+    const url = api.getDownloadUrl(podcastId!)
+    playFromUrl(podcastId!, url)
   }
 
   async function handleDownload() {
     try {
-      await api.generateAudio(id)
+      await api.generateAudio(podcastId!)
       Alert.alert('Listo', 'Audio generado. Puedes reproducirlo ahora.')
     } catch (err: any) {
       Alert.alert('Error', err.message)
@@ -111,7 +113,7 @@ export default function PodcastDetailScreen({ params }: { params: { id: string }
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.playAllBtnText}>
-                {currentPodcastId === id && isPlaying ? '⏸ Pausar' : '▶ Reproducir Todo'}
+                {currentPodcastId === podcastId && isPlaying ? '⏸ Pausar' : '▶ Reproducir Todo'}
               </Text>
             )}
           </TouchableOpacity>

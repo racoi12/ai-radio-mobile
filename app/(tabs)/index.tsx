@@ -32,6 +32,10 @@ export default function HomeTab() {
   const mutation = useMutation({
     mutationFn: () => api.generateScript(topic, numSegments),
     onSuccess: (data) => {
+      if (!data?.podcastId) {
+        Alert.alert('Error', 'No se recibió ID del podcast')
+        return
+      }
       router.push(`/podcast/${data.podcastId}`)
     },
     onError: (err: Error) => {
