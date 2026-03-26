@@ -32,7 +32,7 @@ export default function LoginScreen() {
         const { register } = await import('../../src/lib/api')
         await register(email, password, name)
         Alert.alert('Revisa tu email', 'Te enviamos un código de verificación.')
-        router.push({ pathname: '/(auth)/verify-email', params: { email } })
+        router.push(`/(auth)/verify-email?email=${encodeURIComponent(email)}`)
       } else {
         await login(email, password)
         router.replace('/(tabs)')
