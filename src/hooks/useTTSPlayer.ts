@@ -40,27 +40,35 @@ export function useTTSPlayer({ segments, hostA, hostB, onDone, onStartGenerating
       setCurrentLineIdx(lIdx)
       setIsSpeaking(true)
 
-      Speech.speak(text, {
-        language: 'es-ES',
-        pitch: 1.0,
-        rate: 0.95,
-        onDone: () => {
-          if (!isPlayingRef.current) return
-          if (lineIdx + 1 >= totalLines) {
-            isPlayingRef.current = false
-            setIsPlaying(false)
-            setIsSpeaking(false)
-            onDone?.()
-          } else {
-            speakLine(lineIdx + 1)
-          }
-        },
-        onError: () => {
-          if (isPlayingRef.current) {
-            speakLine(lineIdx + 1)
-          }
-        },
-      })
+      try {
+        Speech.speak(text, {
+          language: 'es-ES',
+          pitch: 1.0,
+          rate: 0.95,
+          onDone: () => {
+            if (!isPlayingRef.current) return
+            if (lineIdx + 1 >= totalLines) {
+              isPlayingRef.current = false
+              setIsPlaying(false)
+              setIsSpeaking(false)
+              onDone?.()
+            } else {
+              speakLine(lineIdx + 1)
+            }
+          },
+          onError: (err) => {
+            console.warn('TTS speak error:', err)
+            if (isPlayingRef.current) {
+              speakLine(lineIdx + 1)
+            }
+          },
+        })
+      } catch (err) {
+        console.warn('TTS engine unavailable:', err)
+        isPlayingRef.current = false
+        setIsPlaying(false)
+        setIsSpeaking(false)
+      }
     },
     [allLines, totalLines, hostA, hostB, onDone]
   )

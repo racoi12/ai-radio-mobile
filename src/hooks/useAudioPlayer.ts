@@ -2,13 +2,19 @@ import { useCallback, useEffect } from 'react'
 import { Audio, AVPlaybackStatus } from 'expo-av'
 import { useAppStore } from '../store/appStore'
 
-// Configure audio mode
-Audio.setAudioModeAsync({
-  allowsRecordingIOS: false,
-  playsInSilentModeIOS: true,
-  staysActiveInBackground: true,
-  shouldDuckAndroid: true,
-})
+// Configure audio mode — wrapped in async IIFE to avoid top-level await
+;(async () => {
+  try {
+    await Audio.setAudioModeAsync({
+      allowsRecordingIOS: false,
+      playsInSilentModeIOS: true,
+      staysActiveInBackground: true,
+      shouldDuckAndroid: true,
+    })
+  } catch (err) {
+    console.warn('Audio mode setup failed:', err)
+  }
+})()
 
 export function useAudioPlayer() {
   const {
