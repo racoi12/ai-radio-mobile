@@ -11,7 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import * as api from '../../src/lib/api'
 import { useAudioPlayer } from '../../src/hooks/useAudioPlayer'
-import { useTTSPlayer } from '../../src/hooks/useTTSPlayer'
+import { usePollyPlayer } from '../../src/hooks/usePollyPlayer'
 import { PodcastScript, Segment } from '../../src/types'
 
 function SegmentCard({
@@ -73,22 +73,12 @@ export default function PodcastDetailScreen() {
     try { script = JSON.parse(podcast.script_json) } catch {}
   }
 
-  // Start MP3 generation in background when using TTS
-  const handleStartGenerating = async () => {
-    if (!podcastId) return
-    try {
-      await api.generateAudio(podcastId)
-      queryClient.invalidateQueries({ queryKey: ['podcast', podcastId] })
-    } catch {}
-  }
-
-  // TTS player (used when no audio file yet)
-  const tts = useTTSPlayer({
+  // Polly player (used when no audio file yet)
+  const polly = usePollyPlayer({
     segments: script?.segments || [],
-    hostA: script?.hostA || { name: 'Anfitrión A' },
-    hostB: script?.hostB || { name: 'Anfitrión B' },
+    hostA: script?.hostA || { name: 'Anfitrión A', voiceId: 'valeria' },
+    hostB: script?.hostB || { name: 'Anfitrión B', voiceId: 'diego' },
     onDone: () => {},
-    onStartGeneratingMP3: handleStartGenerating,
   })
 
   // When MP3 becomes available, switch to it
@@ -106,17 +96,17 @@ export default function PodcastDetailScreen() {
   }
 
   // Unified controls
-  const isCurrentlyPlaying = hasAudio ? isAvPlaying : tts.isPlaying
-  const currentSegIdx = hasAudio ? 0 : tts.currentSegmentIdx
+  const isCurrentlyPlaying = hasAudio ? isAvPlaying : polly.isPlaying
+  const currentSegIdx = hasAudio ? 0 : polly.currentSegmentIdx
 
   function handleMainPlay() {
     if (hasAudio) {
       handlePlayAv()
     } else {
-      if (tts.isPlaying) {
-        tts.pause()
+      if (polly.isPlaying) {
+        polly.pause()
       } else {
-        tts.play()
+        polly.play()
       }
     }
   }
@@ -125,7 +115,7 @@ export default function PodcastDetailScreen() {
     if (hasAudio) {
       handleStopAv()
     } else {
-      tts.pause()
+      polly.pause()
     }
   }
 
@@ -184,15 +174,15 @@ export default function PodcastDetailScreen() {
             )}
           </TouchableOpacity>
 
-          {!hasAudio && !tts.isPlaying && !isLoadingAudio && (
+          {!hasAudio && !polly.isPlaying && !isLoadingAudio && (
             <TouchableOpacity style={styles.downloadBtn} onPress={handleGenerateAudio}>
               <Text style={styles.downloadBtnText}>↓ Generar MP3</Text>
             </TouchableOpacity>
           )}
 
-          {!hasAudio && (
+          {!hasAudio && (polly.isPlaying || polly.isLoading) && (
             <Text style={styles.audioPending}>
-              {!tts.isPlaying ? 'Escucha ahora con TTS' : 'Reproduciendo con TTS...'}
+              {polly.isLoading ? 'Generando audio...' : 'Reproduciendo...'}
             </Text>
           )}
 
@@ -201,13 +191,13 @@ export default function PodcastDetailScreen() {
           )}
         </View>
 
-        {/* Current line display (TTS mode) */}
-        {!hasAudio && tts.isSpeaking && tts.currentLine && (
+        {/* Current line display */}
+        {!hasAudio && (polly.isPlaying || polly.isLoading) && polly.currentLine && (
           <View style={styles.currentLineSection}>
             <Text style={styles.currentLineSpeaker}>
-              {tts.currentLine.speaker === 'A' ? script.hostA.name : script.hostB.name}
+              {polly.currentLine.speaker === 'A' ? script.hostA.name : script.hostB.name}
             </Text>
-            <Text style={styles.currentLineText}>{tts.currentLine.text}</Text>
+            <Text style={styles.currentLineText}>{polly.currentLine.text}</Text>
           </View>
         )}
 
@@ -259,9 +249,9 @@ export default function PodcastDetailScreen() {
                 key={segment.id}
                 segment={segment}
                 index={index}
-                isCurrent={index === tts.currentSegmentIdx}
-                isPlaying={tts.isPlaying}
-                onPress={() => !hasAudio && tts.skipToSegment(index)}
+                isCurrent={index === polly.currentSegmentIdx}
+                isPlaying={polly.isPlaying}
+                onPress={() => !hasAudio && polly.skipToSegment(index)}
               />
             ))}
           </View>
