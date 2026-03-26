@@ -11,14 +11,17 @@ import {
   ScrollView,
   Alert,
 } from 'react-native'
-import { useRouter, Link } from 'expo-router'
+import { useRouter, Link, useLocalSearchParams } from 'expo-router'
 import * as api from '../../src/lib/api'
 
 export default function ResetPasswordScreen() {
   const router = useRouter()
+  const [step, setStep] = useState<'email' | 'code'>('email')
   const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
   async function handleRequestReset() {
@@ -27,7 +30,7 @@ export default function ResetPasswordScreen() {
     setLoading(true)
     try {
       await api.requestReset(email)
-      setSent(true)
+      setStep('code')
     } catch (err: any) {
       setError(err.message || 'Error desconocido')
     } finally {
@@ -35,22 +38,115 @@ export default function ResetPasswordScreen() {
     }
   }
 
-  if (sent) {
+  async function handleReset() {
+    if (!code.trim() || !password || !confirmPassword) return
+    if (password !== confirmPassword) {
+      setError('Las contraseñas no coinciden')
+      return
+    }
+    if (password.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres')
+      return
+    }
+    setError('')
+    setLoading(true)
+    try {
+      await api.resetPassword(code.trim(), password)
+      Alert.alert('Contraseña actualizada', 'Ya puedes iniciar sesión con tu nueva contraseña.', [
+        { text: 'Ir al login', onPress: () => router.replace('/(auth)/login') },
+      ])
+    } catch (err: any) {
+      setError(err.message || 'No se pudo restablecer la contraseña')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (step === 'code') {
     return (
-      <View style={styles.container}>
-        <View style={styles.successContainer}>
-          <Text style={styles.successIcon}>✉️</Text>
-          <Text style={styles.successTitle}>Revisa tu email</Text>
-          <Text style={styles.successText}>
-            Si esa cuenta existe, te enviamos un enlace para restablecer tu contraseña.
-          </Text>
-          <Link href="/(auth)/login" asChild>
-            <TouchableOpacity style={styles.backBtn}>
-              <Text style={styles.backBtnText}>Volver al login</Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: '#0a0a0f' }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <ScrollView contentContainerStyle={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => setStep('email')}>
+              <Text style={styles.backLink}>← Atrás</Text>
             </TouchableOpacity>
-          </Link>
-        </View>
-      </View>
+          </View>
+
+          <View style={styles.content}>
+            <Text style={styles.icon}>✉️</Text>
+            <Text style={styles.title}>Ingresa el código</Text>
+            <Text style={styles.subtitle}>
+              Te enviamos un código de 6 dígitos a {email}
+            </Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Código</Text>
+              <TextInput
+                style={styles.input}
+                value={code}
+                onChangeText={setCode}
+                placeholder="000000"
+                placeholderTextColor="#6b7280"
+                keyboardType="number-pad"
+                maxLength={6}
+                textAlign="center"
+                style={styles.otpInput}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Nueva contraseña</Text>
+              <TextInput
+                style={styles.input}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                placeholderTextColor="#6b7280"
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Confirmar contraseña</Text>
+              <TextInput
+                style={styles.input}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder="••••••••"
+                placeholderTextColor="#6b7280"
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <TouchableOpacity
+              style={[styles.button, (loading || code.length < 6 || !password) && styles.buttonDisabled]}
+              onPress={handleReset}
+              disabled={loading || code.length < 6 || !password}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.buttonText}>Restablecer contraseña</Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.resendBtn}
+              onPress={handleRequestReset}
+              disabled={loading}
+            >
+              <Text style={styles.resendText}>No recibiste el código? Reenviar</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     )
   }
 
@@ -71,7 +167,7 @@ export default function ResetPasswordScreen() {
         <View style={styles.content}>
           <Text style={styles.title}>¿Olvidaste tu contraseña?</Text>
           <Text style={styles.subtitle}>
-            Ingresa tu email y te enviaremos un enlace para restablecerla.
+            Ingresa tu email y te enviaremos un código para restablecerla.
           </Text>
 
           <View style={styles.inputGroup}>
@@ -91,14 +187,14 @@ export default function ResetPasswordScreen() {
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, (loading || !email.trim()) && styles.buttonDisabled]}
             onPress={handleRequestReset}
             disabled={loading || !email.trim()}
           >
             {loading ? (
               <ActivityIndicator color="white" />
             ) : (
-              <Text style={styles.buttonText}>Enviar enlace</Text>
+              <Text style={styles.buttonText}>Enviar código</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -125,6 +221,10 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
+  },
+  icon: {
+    fontSize: 56,
+    marginBottom: 20,
   },
   title: {
     fontSize: 28,
@@ -161,6 +261,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
+  otpInput: {
+    backgroundColor: '#1f1f2e',
+    borderWidth: 1,
+    borderColor: '#2d2d3d',
+    borderRadius: 12,
+    padding: 16,
+    color: 'white',
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    letterSpacing: 8,
+  },
   button: {
     backgroundColor: '#9333ea',
     borderRadius: 12,
@@ -176,39 +288,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  successContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  resendBtn: {
+    marginTop: 20,
     alignItems: 'center',
-    paddingBottom: 80,
   },
-  successIcon: {
-    fontSize: 56,
-    marginBottom: 20,
-  },
-  successTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 12,
-  },
-  successText: {
-    color: '#9ca3af',
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 32,
-    paddingHorizontal: 20,
-  },
-  backBtn: {
-    backgroundColor: '#1f1f2e',
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-  },
-  backBtnText: {
+  resendText: {
     color: '#9333ea',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
   },
 })
