@@ -107,24 +107,28 @@ export default function PodcastDetailScreen() {
 
         {/* Player Controls */}
         <View style={styles.playerSection}>
-          <TouchableOpacity
-            style={[styles.playAllBtn, isLoadingAudio && styles.playAllBtnDisabled]}
-            onPress={handlePlayAll}
-            disabled={isLoadingAudio}
-          >
-            {isLoadingAudio ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.playAllBtnText}>
-                {currentPodcastId === podcastId && isPlaying ? '⏸ Pausar' : '▶ Reproducir'}
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          {!podcast.audio_path && (
-            <TouchableOpacity style={styles.downloadBtn} onPress={handleGenerateAudio}>
-              <Text style={styles.downloadBtnText}>↓ Generar MP3</Text>
+          {podcast.audio_path ? (
+            <TouchableOpacity
+              style={[styles.playAllBtn, isLoadingAudio && styles.playAllBtnDisabled]}
+              onPress={handlePlayAll}
+              disabled={isLoadingAudio}
+            >
+              {isLoadingAudio ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.playAllBtnText}>
+                  {currentPodcastId === podcastId && isPlaying ? '⏸ Pausar' : '▶ Reproducir'}
+                </Text>
+              )}
             </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.playAllBtn} onPress={handleGenerateAudio}>
+              <Text style={styles.playAllBtnText}>↓ Generar Audio</Text>
+            </TouchableOpacity>
+          )}
+
+          {!podcast.audio_path && !isLoadingAudio && (
+            <Text style={styles.audioPending}>Audio no disponible — genera primero</Text>
           )}
 
           {podcast.audio_path && (
