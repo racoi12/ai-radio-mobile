@@ -25,7 +25,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="podcast/[id]" options={{ headerShown: true, title: 'Podcast' }} />
+          <Stack.Screen name="podcast/[id]" options={{ headerShown: false }} />
         </Stack>
       </QueryProvider>
     </SafeAreaProvider>
