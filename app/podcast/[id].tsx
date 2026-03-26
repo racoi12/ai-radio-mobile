@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter, useLocalSearchParams } from 'expo-router'
 import * as api from '../../src/lib/api'
 import { useAudioPlayer } from '../../src/hooks/useAudioPlayer'
@@ -45,6 +45,7 @@ function SegmentCard({
 export default function PodcastDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { playFromUrl, isPlaying, currentPodcastId, playbackPosition, playbackDuration, isLoadingAudio } =
     useAudioPlayer()
 
@@ -60,15 +61,17 @@ export default function PodcastDetailScreen() {
   const script: PodcastScript | null = podcast ? JSON.parse(podcast.script_json) : null
 
   function handlePlayAll() {
-    if (!podcast?.audio_path && !podcast?.id) return
-    const url = api.getDownloadUrl(podcastId!)
-    playFromUrl(podcastId!, url)
+    if (!podcastId) return
+    const url = api.getDownloadUrl(podcastId)
+    playFromUrl(podcastId, url)
   }
 
-  async function handleDownload() {
+  async function handleGenerateAudio() {
+    if (!podcastId) return
     try {
-      await api.generateAudio(podcastId!)
-      Alert.alert('Listo', 'Audio generado. Puedes reproducirlo ahora.')
+      await api.generateAudio(podcastId)
+      queryClient.invalidateQueries({ queryKey: ['podcast', podcastId] })
+      Alert.alert('Listo', 'Audio generado. Pulsa ▶ para reproducir.')
     } catch (err: any) {
       Alert.alert('Error', err.message)
     }
@@ -93,33 +96,33 @@ export default function PodcastDetailScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
+        {/* Header - compact */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Text style={styles.backBtnText}>← Volver</Text>
           </TouchableOpacity>
-          <Text style={styles.title}>{podcast.title}</Text>
+          <Text style={styles.title} numberOfLines={2}>{podcast.title}</Text>
           <Text style={styles.topic}>{podcast.topic}</Text>
         </View>
 
         {/* Player Controls */}
         <View style={styles.playerSection}>
           <TouchableOpacity
-            style={[styles.playAllBtn, (!podcast.audio_path && isLoadingAudio) && styles.playAllBtnDisabled]}
+            style={[styles.playAllBtn, isLoadingAudio && styles.playAllBtnDisabled]}
             onPress={handlePlayAll}
-            disabled={!podcast.audio_path && !isLoadingAudio}
+            disabled={isLoadingAudio}
           >
             {isLoadingAudio ? (
               <ActivityIndicator color="white" />
             ) : (
               <Text style={styles.playAllBtnText}>
-                {currentPodcastId === podcastId && isPlaying ? '⏸ Pausar' : '▶ Reproducir Todo'}
+                {currentPodcastId === podcastId && isPlaying ? '⏸ Pausar' : '▶ Reproducir'}
               </Text>
             )}
           </TouchableOpacity>
 
           {!podcast.audio_path && (
-            <TouchableOpacity style={styles.downloadBtn} onPress={handleDownload}>
+            <TouchableOpacity style={styles.downloadBtn} onPress={handleGenerateAudio}>
               <Text style={styles.downloadBtnText}>↓ Generar MP3</Text>
             </TouchableOpacity>
           )}
@@ -130,7 +133,7 @@ export default function PodcastDetailScreen() {
         </View>
 
         {/* Progress */}
-        {currentPodcastId === id && playbackDuration > 0 && (
+        {currentPodcastId === podcastId && playbackDuration > 0 && (
           <View style={styles.progressSection}>
             <View style={styles.progressBar}>
               <View
@@ -209,14 +212,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   content: {
-    padding: 20,
-    paddingTop: 60,
+    padding: 16,
+    paddingTop: 16,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   backBtn: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   backBtnText: {
     color: '#9333ea',
@@ -224,28 +227,28 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
     color: 'white',
-    lineHeight: 32,
-    marginBottom: 8,
+    lineHeight: 28,
+    marginBottom: 4,
   },
   topic: {
     color: '#6b7280',
-    fontSize: 14,
+    fontSize: 13,
   },
   playerSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 20,
+    gap: 10,
+    marginBottom: 16,
     flexWrap: 'wrap',
   },
   playAllBtn: {
     backgroundColor: '#9333ea',
-    borderRadius: 12,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -255,26 +258,26 @@ const styles = StyleSheet.create({
   playAllBtnText: {
     color: 'white',
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: 14,
   },
   downloadBtn: {
     backgroundColor: '#065f46',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   downloadBtnText: {
     color: '#10b981',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
   },
   audioReady: {
     color: '#10b981',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
   },
   progressSection: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   progressBar: {
     height: 4,
@@ -296,65 +299,65 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   descriptionSection: {
-    marginBottom: 24,
-    padding: 16,
+    marginBottom: 16,
+    padding: 14,
     backgroundColor: '#111119',
-    borderRadius: 12,
+    borderRadius: 10,
   },
   description: {
     color: '#9ca3af',
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
   },
   hostsSection: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
     color: '#6b7280',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 1,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   hostsRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
   },
   hostCard: {
     flex: 1,
     backgroundColor: '#111119',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 10,
+    padding: 12,
   },
   hostName: {
     color: 'white',
     fontWeight: '600',
-    fontSize: 14,
-    marginBottom: 4,
+    fontSize: 13,
+    marginBottom: 2,
   },
   hostDesc: {
     color: '#6b7280',
-    fontSize: 12,
+    fontSize: 11,
   },
   segmentsSection: {
-    marginBottom: 40,
+    marginBottom: 32,
   },
   segmentCard: {
     backgroundColor: '#111119',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
   },
   segmentHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   segmentBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#9333ea',
     alignItems: 'center',
     justifyContent: 'center',
@@ -362,32 +365,32 @@ const styles = StyleSheet.create({
   segmentBadgeText: {
     color: 'white',
     fontWeight: 'bold',
-    fontSize: 13,
+    fontSize: 12,
   },
   segmentInfo: {
     flex: 1,
   },
   segmentTitle: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   segmentDuration: {
     color: '#6b7280',
-    fontSize: 12,
-    marginTop: 2,
+    fontSize: 11,
+    marginTop: 1,
   },
   playSegmentBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#1f1f2e',
     alignItems: 'center',
     justifyContent: 'center',
   },
   playSegmentBtnText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 13,
   },
   errorText: {
     color: '#6b7280',
